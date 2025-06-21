@@ -9,17 +9,13 @@ script.src = chrome.runtime.getURL("./src/scripts/injector.js");
 script.type = "module";
 (document.head || document.documentElement).appendChild(script);
 
-async function createNonceByPublicKey(pubKey, nonce) {
+async function requestChallenge() {
   try {
-    const response = await fetch(`http://127.0.0.1:3000/api/create-nonce/${pubKey}`, {
-      method: 'POST',
+    const response = await fetch(`http://127.0.0.1:3000/api/challenge`, {
+      method: 'GET',
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        nonce: nonce
-      })
+        'Accept': 'application/json'
+      }
     });
 
     if (response.status !== 200) {
@@ -33,22 +29,70 @@ async function createNonceByPublicKey(pubKey, nonce) {
   }
 }
 
-async function verifyNonceByPublicKey(pubKey, nonce) {
+async function responseChallenge(challenge, publicKey, signatures) {
   try {
-    const response = await fetch(`http://127.0.0.1:3000/api/verify-nonce/${pubKey}`, {
+    const response = await fetch(`http://127.0.0.1:3000/api/challenge`, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        challenge: challenge,
+        publicKey: publicKey,
+        signatures: signatures
+      })
+    });
+
+    // if (response.status !== 200) {
+    //   return null;
+    // }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function createNonce() {
+  try {
+    const response = await fetch(`http://127.0.0.1:3000/api/nonce`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('proofmail-session')}`
+      }
+    });
+
+    // if (response.status !== 200) {
+    //   return null;
+    // }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function verifyNonce(nonce) {
+  try {
+    const response = await fetch(`http://127.0.0.1:3000/api/nonce`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('proofmail-session')}`
+      },
+      body: JSON.stringify({
         nonce: nonce
       })
     });
 
-    if (response.status !== 200) {
-      return null;
-    }
+    // if (response.status !== 200) {
+    //   return null;
+    // }
 
     const data = await response.json();
     return data;
@@ -161,7 +205,7 @@ const createVerifyBadgeElement = () => {
   return badge;
 }
 
-async function verifyAndBadge(emailFrom, message, signature, pubKey) {
+async function verifySignature(message, publicKey, signature, _, emailFrom, nonce) {
   const badge = createVerifyBadgeElement();
   if (!badge) {
     return false;
@@ -180,8 +224,7 @@ async function verifyAndBadge(emailFrom, message, signature, pubKey) {
   }
 
   try {
-    const userData = await fetchUserFromPublicKey(pubKey);
-    // const verification = await verifyNonceByPublicKey(pubKey, nonce);
+    const userData = await fetchUserFromPublicKey(publicKey);
 
     if (userData && userData?.email !== emailFrom) {
       badge.innerHTML = createErrorBadge("Email from signature does not match user data.");
@@ -194,8 +237,15 @@ async function verifyAndBadge(emailFrom, message, signature, pubKey) {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const bodyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
+    const nonceResponse = await verifyNonce(nonce);
+    if (!nonceResponse || !nonceResponse.success) {
+      badge.innerHTML = createErrorBadge(nonceResponse.error || nonceResponse.message);
+      console.error("Nonce verification failed", nonceResponse);
+      return false;
+    }
+
     const msgBytes = new TextEncoder().encode(
-      `ProofMail-${userData?.email || emailFrom}-${bodyHash}`
+      `ProofMail-${userData?.email || emailFrom}-${bodyHash}-${nonceResponse.nonce}`
     );
     const sigBytes = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
     if (sigBytes.length !== 64) {
@@ -203,13 +253,13 @@ async function verifyAndBadge(emailFrom, message, signature, pubKey) {
       return false;
     }
 
-    const pubKeyBytes = bs58.decode(pubKey);
+    const pubKeyBytes = bs58.decode(publicKey);
     if (pubKeyBytes.length !== 32) {
       badge.innerHTML = createErrorBadge("Invalid public key length.");
       return false;
     }
 
-    const senderName = userData?.name || pubKey.slice(0, 16) + "...";
+    const senderName = userData?.name || publicKey.slice(0, 16) + "...";
 
     const isValid = nacl.sign.detached.verify(msgBytes, sigBytes, pubKeyBytes);
     if (isValid) {
@@ -230,47 +280,6 @@ async function verifyAndBadge(emailFrom, message, signature, pubKey) {
   }
 };
 
-const isMatchEmpty = (str) => !str || str.trim() === "";
-
-const deserializeEmailText = (emailText) => {
-  const messageMatch = emailText.match(/([\s\S]+?)\n\n---/);
-  if (!messageMatch || isMatchEmpty(messageMatch[1])) {
-    return null;
-  }
-
-  const signatureMatch = emailText.match(/Signature: (.+)/);
-  if (!signatureMatch || isMatchEmpty(signatureMatch[1])) {
-    return null;
-  }
-
-  const pubkeyMatch = emailText.match(/Signed by: (.+)/);
-  if (!pubkeyMatch || isMatchEmpty(pubkeyMatch[1])) {
-    return null;
-  }
-
-  const emailMatch = emailText.match(/From: (.+)/);
-  if (!emailMatch || isMatchEmpty(emailMatch[1])) {
-    return null;
-  }
-
-  const emailFrom = emailMatch[1].trim();
-  if (emailFrom !== emailText.match(/From: (.+)/)[1].trim()) {
-    return null;
-  }
-
-  const hashMatch = emailText.match(/Hash: (.+)/);
-  if (!hashMatch || isMatchEmpty(hashMatch[1])) {
-    return null;
-  }
-
-  const signature = signatureMatch[1].trim();
-  const pubKey = pubkeyMatch[1].trim();
-  const message = messageMatch[1].trim();
-  const hash = hashMatch[1].trim();
-
-  return { emailFrom, message, signature, pubKey, hash };
-};
-
 window.verifyEmailSignature = async function () {
   const badge = createVerifyBadgeElement();
   if (!badge) {
@@ -279,47 +288,39 @@ window.verifyEmailSignature = async function () {
 
   const emailView = document.querySelector('.a3s');
   if (!emailView) {
-    // badge.innerHTML = createErrorBadge("Email view not found.");
     return false;
   }
 
   const emailText = emailView.innerText;
   if (!emailText || emailText.trim() === "") {
-    // badge.innerHTML = createErrorBadge("Email text is empty.");
     return false;
   }
 
-  const emailTextMatch = emailText.match(/--- PROOFMAIL SIGNATURE BEGIN ---/);
+  const emailTextMatch = emailText.match(/([\s\S]+?)\n\n--- PROOFMAIL SIGNATURE BEGIN ---\nSigned by: (.+)\nSignature: (.+)\nHash: (.+)\nFrom: (.+)\nNonce: (.+)\n\nThis email is signed using ProofMail. If you trust this signature, you can verify it using the ProofMail extension.\n--- PROOFMAIL SIGNATURE END ---/);
   if (!emailTextMatch) {
-    // badge.innerHTML = createErrorBadge("Email text does not contain ProofMail signature.");
+    console.log('test');
     return false;
   }
 
-  const deserialized = deserializeEmailText(emailText);
-  if (!deserialized) {
-    badge.innerHTML = createErrorBadge("Failed to deserialize email text.");
+  const emailFromSpan = document.querySelector('span[email][name].gD');
+  if (!emailFromSpan) {
+    badge.innerHTML = createErrorBadge('Hovered email span not found.');
     return false;
   }
 
-  const emailSpan = document.querySelector("span[email][name].gD");
-  if (!emailSpan) {
-    badge.innerHTML = createErrorBadge("Hovered email span not found.");
+  const message = emailTextMatch[1];
+  const publicKey = emailTextMatch[2];
+  const signature = emailTextMatch[3];
+  const bodyHash = emailTextMatch[4];
+  const emailFrom = emailTextMatch[5];
+  const nonce = emailTextMatch[6];
+
+  if (emailFrom !== emailFromSpan.getAttribute('email')) {
+    badge.innerHTML = createErrorBadge('Email address does not match signature.');
     return false;
   }
 
-  const email = emailSpan.getAttribute("email");
-  if (!email || email.trim() === "") {
-    badge.innerHTML = createErrorBadge("Email address not found.");
-    return false;
-  }
-
-  if (email !== deserialized.emailFrom) {
-    badge.innerHTML = createErrorBadge("Email address does not match signature.");
-    return false;
-  }
-
-  const { emailFrom, message, signature, pubKey } = deserialized;
-  return verifyAndBadge(emailFrom, message, signature, pubKey);
+  return verifySignature(message, publicKey, signature, bodyHash, emailFrom, nonce);
 };
 
 const toolbarMutationObserver = new MutationObserver(async () => {
@@ -327,6 +328,16 @@ const toolbarMutationObserver = new MutationObserver(async () => {
   if (!toolbar) {
     return;
   }
+
+  // <div id=":z9" class="aoI" role="region" data-compose-id="14" jsmodel="Gt4u5c" aria-label="New Message" style="height: 429px;">
+  // const composeBox = document.querySelector('div.aoI[aria-label="New Message"]');
+  // if (!composeBox || !composeBox.style || !composeBox.style.height) {
+  //   const existingButton = document.getElementById("proofmail-sign-btn");
+  //   if (existingButton) {
+  //     existingButton.remove();
+  //   }
+  //   return;
+  // }
 
   const existingButton = document.getElementById("proofmail-sign-btn");
   if (existingButton) {
@@ -337,7 +348,7 @@ const toolbarMutationObserver = new MutationObserver(async () => {
   button.innerText = "Sign your email with Proofmail!";
   button.id = "proofmail-sign-btn";
 
-button.style.cssText = `
+  button.style.cssText = `
     margin: 8px; /* Ini dari kode JS asli Anda */
     margin-left: 15px; /* Ini dari kode JS asli Anda */
     padding: 8px 16px; /* Ini dari kode JS asli Anda */
@@ -354,23 +365,37 @@ button.style.cssText = `
 `;
 
 
-button.onmouseover = () => {
-    button.style.background = '#306DC0'; 
+  button.onmouseover = () => {
+    button.style.background = '#306DC0';
     button.style.transform = 'translateY(-4px) scale(1.03)';
-    button.style.boxShadow = '0 12px 30px rgba(59, 130, 246, 0.5)'; 
+    button.style.boxShadow = '0 12px 30px rgba(59, 130, 246, 0.5)';
     button.style.borderColor = 'rgba(59, 130, 246, 0.9)';
-};
+  };
 
 
-button.onmouseout = () => {
-    button.style.background = '#3B82F6'; 
-    button.style.transform = 'none'; 
+  button.onmouseout = () => {
+    button.style.background = '#3B82F6';
+    button.style.transform = 'none';
     button.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
     button.style.borderColor = 'rgba(59, 130, 246, 0.6)';
-};
+  };
 
 
   button.onclick = async () => {
+    if (localStorage.getItem('proofmail-session') === null) {
+      const response = await requestChallenge();
+      if (!response || !response.challenge) {
+        console.error("Failed to fetch challenge");
+        return;
+      }
+
+      window.postMessage({
+        type: 'PROOFMAILSIGNCHALLENGE',
+        challenge: response.challenge
+      }, '*');
+      return;
+    }
+
     const badge = createSignBadgeElement();
     if (!badge) {
       return;
@@ -394,11 +419,22 @@ button.onmouseout = () => {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const bodyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
+    const nonce = await createNonce();
+    if (!nonce || !nonce.nonce) {
+      if (nonce.error === 'User not found') {
+        localStorage.removeItem('proofmail-session');
+      }
+
+      badge.innerHTML = createErrorBadge(nonce.error || "Failed to create nonce. Please try again.");
+      return;
+    }
+
     window.postMessage({
       type: "PROOFMAILSIGN",
       message: {
         email: metaTag.content,
-        bodyHash: bodyHash
+        bodyHash: bodyHash,
+        nonce: nonce.nonce
       }
     }, "*");
   };
@@ -456,20 +492,14 @@ window.addEventListener('message', async (event) => {
     const signature = event.data.signature;
     const bodyHash = event.data.bodyHash;
     const email = event.data.email;
+    const nonce = event.data.nonce;
 
-    if (!signature || !pubKey || !email || !bodyHash) {
+    if (!pubKey || !signature || !bodyHash || !email || !nonce) {
       badge.innerHTML = createErrorBadge('Invalid signature data received.');
       return;
     }
 
-    /* const response = await createNonceByPublicKey(pubKey, nonce);
-    if (!response) {
-      badge.innerHTML = createErrorBadge('Failed to create nonce for public key.');
-      return;
-    } */
-
-    const signatureBlock = `\n\n--- PROOFMAIL SIGNATURE BEGIN ---\nSigned by: ${pubKey}\nSignature: ${signature}\nHash: ${bodyHash}\nFrom: ${email}\n\nThis email is signed using ProofMail. If you trust this signature, you can verify it using the ProofMail extension.\n--- PROOFMAIL SIGNATURE END ---\n`;
-    emailBodyElement.innerText += signatureBlock;
+    emailBodyElement.innerText += `\n\n--- PROOFMAIL SIGNATURE BEGIN ---\nSigned by: ${pubKey}\nSignature: ${signature}\nHash: ${bodyHash}\nFrom: ${email}\nNonce: ${nonce}\n\nThis email is signed using ProofMail. If you trust this signature, you can verify it using the ProofMail extension.\n--- PROOFMAIL SIGNATURE END ---\n`;
 
     badge.innerHTML = createSuccessBadge('Email signed successfully. You can now send it.');
   } else if (event.data.type == 'PROOFMAILSIGNFAILED') {
@@ -480,5 +510,28 @@ window.addEventListener('message', async (event) => {
     }
 
     badge.innerHTML = createErrorBadge(event.data.message);
+  } else if (event.data.type === 'PROOFMAILSIGNEDCHALLENGE') {
+    const badge = createSignBadgeElement();
+    if (!badge) {
+      alert('Failed to create sign badge element');
+      return;
+    }
+
+    const response = await responseChallenge(event.data.challenge, event.data.publicKey, event.data.signatures);
+    if (!response || !response.success) {
+      badge.innerHTML = createErrorBadge(response?.message || response?.error || 'Failed to verify challenge. Please try again.');
+      return;
+    }
+
+    localStorage.setItem('proofmail-session', response.session);
+    badge.innerHTML = createSuccessBadge('Challenge signed successfully. You can now sign your emails.');
+  } else if (event.data.type === 'PROOFMAILSIGNCHALLENGEFAILED') {
+    const badge = createSignBadgeElement();
+    if (!badge) {
+      alert('Failed to create sign badge element');
+      return;
+    }
+
+    badge.innerHTML = createErrorBadge(event.data.message || 'Failed to sign challenge. Please try again.');
   }
 });
