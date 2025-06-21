@@ -427,53 +427,6 @@ button#continue-app-button:active {
     font-size: 18px; /* Ukuran panah mengikuti link */
     line-height: 1;
 }
-
-/* --- Ide Tambahan (Optional) --- */
-
-/* Badge "New" atau "Pro" (contoh ide) */
-/*
-.premium-promo::before {
-    content: "PRO"; // Atau "NEW", "PREMIUM"
-    position: absolute;
-    top: -10px; // Sesuaikan posisi
-    right: -10px; // Sesuaikan posisi
-    background: #FFD700; // Warna emas
-    color: #333;
-    padding: 4px 8px;
-    border-radius: 5px;
-    font-size: 10px;
-    font-weight: bold;
-    text-transform: uppercase;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    z-index: 10;
-}
-*/
-
-/* Bar progres penggunaan (ide) */
-/* Ini butuh JS untuk memperbarui width */
-/*
-.usage-bar {
-    width: 100%;
-    height: 6px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 3px;
-    margin-top: 10px;
-    overflow: hidden;
-}
-
-.usage-bar-fill {
-    height: 100%;
-    width: 30%; // Ini akan diperbarui oleh JS (misal 90/100 * 100%)
-    background: linear-gradient(to right, #4CAF50, #8BC34A); // Warna hijau
-    border-radius: 3px;
-}
-*/
-
-
-/* start promoting */
-/* ... CSS sebelumnya (sampai .section-label) ... */
-
-/* Penyesuaian umum agar konten mengisi ruang dengan baik */
 .content-wrapper {
     height: 100%;
     display: flex;
