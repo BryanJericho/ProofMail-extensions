@@ -36,7 +36,7 @@
 body {
     font-family: 'Manrope', sans-serif; /* Menggunakan font Manrope untuk konten utama */
     padding: 25px;
-    width: 300px;
+    width: 400px;
     /* Background utama akan ditangani oleh .area, body tidak perlu background gradient lagi */
     color: var(--color-text-light);
     box-sizing: border-box;
@@ -47,7 +47,7 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 250px;
+    min-height: 230px;
     position: relative; /* Penting untuk penempatan .content-wrapper */
 }
 
@@ -254,25 +254,6 @@ button#sign-mode:active {
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
-button#verify-mode {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-  border: 1px solid rgba(59, 130, 246, 0.5);
-}
-
-button#verify-mode:hover {
-  background: rgba(255, 255, 255, 0.25);
-  color: var(--color-text-light);
-  transform: translateY(-4px) scale(1.03);
-  box-shadow: 0 12px 30px rgba(59, 130, 246, 0.4);
-  border: 1px solid rgba(59, 130, 246, 0.9);
-}
-
-button#verify-mode:active {
-  transform: translateY(0);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-}
-
 .website-link {
   margin-top: auto;
   text-align: center;
@@ -427,6 +408,7 @@ button#continue-app-button:active {
     font-size: 18px; /* Ukuran panah mengikuti link */
     line-height: 1;
 }
+
 .content-wrapper {
     height: 100%;
     display: flex;
@@ -523,12 +505,12 @@ button#continue-app-button:active {
     color: var(--color-text-paragraph);
     margin-bottom: 0;
     line-height: 1.5;
-    max-width: 90%; /* Batasi lebar teks agar tidak terlalu panjang */
+    max-width: 90%;
 }
 
 .premium-status-card .upgrade-btn {
-    display: block; /* Agar link bisa menjadi blok dan di-tengah */
-    width: 80%; /* Lebar tombol upgrade */
+    display: block; 
+    width: 80%;
     padding: 12px 15px;
     background: var(--color-blue-primary); /* Warna tombol primary */
     color: white;

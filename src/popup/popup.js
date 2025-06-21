@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // #region Constants and Initial Data
     const MAX_USES = 90;
-    let usesThisMonth = 30; // Contoh nilai
+    let usesThisMonth = 0; // Contoh nilai
 
     const VISITED_KEY = 'proofmailHasVisited';
     const REGISTRATION_URL = 'https://proofmail.com/register'; // KEMBALIKAN INI
