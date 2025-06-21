@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "build": "webpack"
+  },
+  "dependencies": {
+    "bs58": "^4.0.1",
+    "buffer": "^6.0.3",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1"
+  }
+}

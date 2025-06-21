@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProofMail Extension</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="area">
+    <ul class="circles">
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+      <li></li>
+    </ul>
+  </div>
+
+  <div class="content-wrapper">
+    <div id="first-time-view" class="view hidden">
+        <div class="logo-container">
+            <img src="logoWhite.png" alt="ProofMail Logo">
+        </div>
+        <p>Welcome to ProofMail!</p>
+        <p>It seems this is your first time here. <br>Checkout proofmail.com to learn more and get started.</p>
+        <div class="button-container">
+            <button id="checkout-website-button">Visit ProofMail.com</button>
+            <button id="continue-app-button">Continue to App</button>
+        </div>
+    </div>
+
+    <div id="main-app-view" class="view">
+        <div class="logo-container">
+            <img src="logoWhite.png" alt="ProofMail Logo">
+        </div>
+        <p>Secure your Email with us, Choose your mode!</p>
+        <div class="button-container">
+            <button id="sign-mode">Send with Signature</button>
+            <button id="verify-mode">Verify Checking</button>
+        </div>
+        <div class="website-link">
+            <a href="https://proofmail.com" target="_blank" rel="noopener noreferrer">Visit our Website on proofmail.com</a>
+        </div>
+
+        <span id="premium-section-label" class="section-label">Unlock Full Potential</span>
+        <div id="premium-status-card" class="premium-status-card">
+            <div class="usage-info">
+                <span id="current-usage-count">0</span> / 90 uses this month
+            </div>
+            <div class="usage-progress-bar">
+                <div class="progress-fill" style="width: 0%;"></div>
+            </div>
+            <p class="promo-message">
+                Run out of uses? Upgrade to Premium for unlimited access and more!
+            </p>
+            <a href="https://proofmail.com/premium" target="_blank" rel="noopener noreferrer" class="upgrade-btn">
+                Get Premium Plan
+            </a>
+        </div>
+
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
