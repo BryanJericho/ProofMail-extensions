@@ -334,36 +334,41 @@ const toolbarMutationObserver = new MutationObserver(async () => {
   }
 
   const button = document.createElement("button");
-  button.innerText = "ProofMail Sign Email";
+  button.innerText = "Sign your email with Proofmail!";
   button.id = "proofmail-sign-btn";
 
-  button.style.cssText = `
-    margin: 8px;
-    margin-left: 15px;
-    padding: 8px 16px;
-    border: none;
-    background: linear-gradient(45deg, #007BFF 0%, #0056b3 100%);
+button.style.cssText = `
+    margin: 8px; /* Ini dari kode JS asli Anda */
+    margin-left: 15px; /* Ini dari kode JS asli Anda */
+    padding: 8px 16px; /* Ini dari kode JS asli Anda */
+    border: 1px solid rgba(59, 130, 246, 0.6); /* Diambil dari CSS sign-mode */
+    background: #3B82F6; /* Dari var(--color-blue-primary) */
     color: white;
-    font-weight: 600;
-    border-radius: 8px;
+    font-weight: 700; /* Diambil dari CSS sign-mode */
+    border-radius: 12px; /* Diambil dari CSS sign-mode */
     cursor: pointer;
-    font-size: 14px;
-    letter-spacing: 0.5px;
-    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.2);
+    font-size: 15px; /* Diambil dari CSS sign-mode (saya ambil dari button umum) */
+    letter-spacing: normal; /* Umumnya tidak ada letter-spacing di CSS sign-mode, tapi bisa diatur jika mau */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Diambil dari CSS sign-mode:active, sesuaikan untuk default */
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  `;
+`;
 
-  button.onmouseover = () => {
-    button.style.background = 'linear-gradient(45deg, #0056b3 0%, #003F80 100%)';
-    button.style.transform = 'translateY(-1px)';
-    button.style.boxShadow = '0 6px 15px rgba(0, 123, 255, 0.4)';
-  };
 
-  button.onmouseout = () => {
-    button.style.background = 'linear-gradient(45deg, #007BFF 0%, #0056b3 100%)';
-    button.style.transform = 'none';
-    button.style.boxShadow = '0 4px 10px rgba(0, 123, 255, 0.2)';
-  };
+button.onmouseover = () => {
+    button.style.background = '#306DC0'; 
+    button.style.transform = 'translateY(-4px) scale(1.03)';
+    button.style.boxShadow = '0 12px 30px rgba(59, 130, 246, 0.5)'; 
+    button.style.borderColor = 'rgba(59, 130, 246, 0.9)';
+};
+
+
+button.onmouseout = () => {
+    button.style.background = '#3B82F6'; 
+    button.style.transform = 'none'; 
+    button.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
+    button.style.borderColor = 'rgba(59, 130, 246, 0.6)';
+};
+
 
   button.onclick = async () => {
     const badge = createSignBadgeElement();
