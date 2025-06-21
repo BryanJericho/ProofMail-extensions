@@ -44,9 +44,9 @@ async function responseChallenge(challenge, publicKey, signatures) {
       })
     });
 
-    if (response.status !== 200) {
-      return null;
-    }
+    // if (response.status !== 200) {
+    //   return null;
+    // }
 
     const data = await response.json();
     return data;
@@ -65,9 +65,9 @@ async function createNonce() {
       }
     });
 
-    if (response.status !== 200) {
-      return null;
-    }
+    // if (response.status !== 200) {
+    //   return null;
+    // }
 
     const data = await response.json();
     return data;
@@ -238,7 +238,6 @@ async function verifySignature(message, publicKey, signature, _, emailFrom, nonc
     const bodyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
     const nonceResponse = await verifyNonce(nonce);
-    console.log(nonceResponse);
     if (!nonceResponse || !nonceResponse.success) {
       badge.innerHTML = createErrorBadge(nonceResponse.error || nonceResponse.message);
       console.error("Nonce verification failed", nonceResponse);
@@ -421,8 +420,12 @@ const toolbarMutationObserver = new MutationObserver(async () => {
     const bodyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
     const nonce = await createNonce();
-    if (!nonce) {
-      badge.innerHTML = createErrorBadge('Failed to create nonce.');
+    if (!nonce || !nonce.nonce) {
+      if (nonce.error === 'User not found') {
+        localStorage.removeItem('proofmail-session');
+      }
+
+      badge.innerHTML = createErrorBadge(nonce.error || "Failed to create nonce. Please try again.");
       return;
     }
 
@@ -516,7 +519,7 @@ window.addEventListener('message', async (event) => {
 
     const response = await responseChallenge(event.data.challenge, event.data.publicKey, event.data.signatures);
     if (!response || !response.success) {
-      badge.innerHTML = createErrorBadge(response?.message || 'Failed to verify challenge. Please try again.');
+      badge.innerHTML = createErrorBadge(response?.message || response?.error || 'Failed to verify challenge. Please try again.');
       return;
     }
 
