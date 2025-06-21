@@ -1,35 +1,57 @@
-window.addEventListener("message", async (event) => {
+window.addEventListener('message', async (event) => {
   if (event.source !== window) {
     return;
   }
 
-  if (event.data.type === "PROOFMAILSIGN") {
+  if (event.data.type === 'PROOFMAILSIGN') {
     if (!window.solana || !window.solana.connect || !window.solana.signMessage) {
-      alert("❌ Solana wallet not detected. Please install a Solana wallet extension.");
+      window.postMessage({
+        type: 'PROOFMAILSIGNFAILED',
+        message: 'Solana wallet not found. Please install a Solana wallet extension.'
+      });
       return;
     }
 
     const message = event.data.message;
 
-    if (!message || message.trim() === "") {
-      alert("❌ No message to sign. Please ensure the email body is not empty.");
+    if (!message) {
+      window.postMessage({
+        type: 'PROOFMAILSIGNFAILED',
+        message: 'No message provided.'
+      });
+      return;
+    }
+
+    if (!message.bodyHash || !message.email) {
+      window.postMessage({
+        type: 'PROOFMAILSIGNFAILED',
+        message: 'Message must contain bodyHash, email.'
+      });
       return;
     }
 
     try {
       await window.solana.connect();
       const signed = await window.solana.signMessage(
-        new TextEncoder().encode(message),
-        "utf8"
+        new TextEncoder().encode(
+          `ProofMail-${message.email}-${message.bodyHash}`
+        ),
+        'utf8'
       );
 
       window.postMessage({
-        type: "PROOFMAILSIGNED",
+        type: 'PROOFMAILSIGNED',
+        publicKey: signed.publicKey.toString(),
         signature: btoa(String.fromCharCode(...signed.signature)),
-        publicKey: signed.publicKey.toString()
-      }, "*");
+        bodyHash: message.bodyHash,
+        email: message.email
+      }, '*');
     } catch (err) {
-      alert("❌ Signature failed. Please ensure you are connected to a Solana wallet.");
+      console.error('ProofMail sign error:', err);
+      window.postMessage({
+          type: 'PROOFMAILSIGNFAILED',
+          message: 'Signature failed. Please ensure you are connected to a Solana wallet.'
+      });
     }
   }
 });
