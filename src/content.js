@@ -161,14 +161,14 @@ const createVerifyBadgeElement = () => {
   return badge;
 }
 
-async function verifyAndBadge(emailFrom, message, signature, pubKey, nonce) {
+async function verifyAndBadge(emailFrom, message, signature, pubKey, hash) {
   const emailView = document.querySelector('.a3s');
   if (!emailView) {
     return false;
   }
 
-  const emailBodyElem = document.querySelector("div[role='listitem'], div[aria-label='Message Body']");
-  if (!emailBodyElem) {
+  const emailBody = document.querySelector("div[role='listitem'], div[aria-label='Message Body']");
+  if (!emailBody) {
     return false;
   }
 
@@ -181,13 +181,21 @@ async function verifyAndBadge(emailFrom, message, signature, pubKey, nonce) {
     const userData = await fetchUserFromPublicKey(pubKey);
     // const verification = await verifyNonceByPublicKey(pubKey, nonce);
 
-    if (userData && userData?.emailVerified !== emailFrom) {
+    if (userData && userData?.email !== emailFrom) {
       badge.innerHTML = createErrorBadge("Email from signature does not match hovered email.");
       return false;
     }
 
+    const encoder = new TextEncoder();
+    const data = encoder.encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const bodyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    console.log(bodyHash)
+
     const msgBytes = new TextEncoder().encode(
-      `ProofMail-${userData?.emailVerified || emailFrom}-${nonce}-${message}`
+      `ProofMail-${userData?.email || emailFrom}-${bodyHash}`
     );
     const sigBytes = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
     if (sigBytes.length !== 64) {
@@ -205,13 +213,13 @@ async function verifyAndBadge(emailFrom, message, signature, pubKey, nonce) {
 
     const isValid = nacl.sign.detached.verify(msgBytes, sigBytes, pubKeyBytes);
     if (isValid) {
-      if (!userData || !verification) {
-        badge.innerHTML = createWarningBadge(senderName);
+      if (!userData) {
+        badge.innerHTML = createWarningBadge(`User ${senderName} is not registered.`);
       } else {
-        badge.innerHTML = createSuccessBadge(senderName, pubKey);
+        badge.innerHTML = createSuccessBadge(`Email verified successfully from <strong>${senderName}</strong>.`);
       }
     } else {
-      badge.innerHTML = createErrorBadge(null, senderName);
+      badge.innerHTML = createErrorBadge(`Invalid signature from <strong>${senderName}</strong>.`);
     }
 
     return true;
@@ -250,17 +258,17 @@ const deserializeEmailText = (emailText) => {
     return null;
   }
 
-  const nonceMatch = emailText.match(/Nonce: (.+)/);
-  if (!nonceMatch || isMatchEmpty(nonceMatch[1])) {
+  const hashMatch = emailText.match(/Hash: (.+)/);
+  if (!hashMatch || isMatchEmpty(hashMatch[1])) {
     return null;
   }
 
   const signature = signatureMatch[1].trim();
   const pubKey = pubkeyMatch[1].trim();
   const message = messageMatch[1].trim();
-  const nonce = nonceMatch[1].trim();
+  const hash = hashMatch[1].trim();
 
-  return { emailFrom, message, signature, pubKey, nonce };
+  return { emailFrom, message, signature, pubKey, hash };
 };
 
 window.verifyEmailSignature = async function () {
@@ -281,15 +289,16 @@ window.verifyEmailSignature = async function () {
     return false;
   }
 
-  const email = hoveredSpan.getAttribute("email");
-  if (!email || email.trim() === "") {
-    badge.innerHTML = createErrorBadge("Email address not found.");
+  // <span translate="no" class="yP" email="zentay36@gmail.com" name="ZTzTopia" data-hovercard-id="zentay36@gmail.com">ZTzTopia</span>
+  const hoveredSpan = document.querySelector("span[email][name].gD");
+  if (!hoveredSpan) {
+    badge.innerHTML = createErrorBadge("Hovered email span not found.");
     return false;
   }
 
-  const hoveredSpan = document.querySelector("span[email][name]");
-  if (!hoveredSpan) {
-    badge.innerHTML = createErrorBadge("Hovered email span not found.");
+  const email = hoveredSpan.getAttribute("email");
+  if (!email || email.trim() === "") {
+    badge.innerHTML = createErrorBadge("Email address not found.");
     return false;
   }
 
@@ -299,13 +308,15 @@ window.verifyEmailSignature = async function () {
     return false;
   }
 
-  const { emailFrom, message, signature, pubKey, nonce } = deserialized;
+  console.log(email)
+
+  const { emailFrom, message, signature, pubKey, hash } = deserialized;
   if (emailFrom !== email) {
     badge.innerHTML = createErrorBadge("Email address does not match hovered email.");
     return false;
   }
 
-  return verifyAndBadge(emailFrom, message, signature, pubKey, nonce);
+  return verifyAndBadge(emailFrom, message, signature, pubKey, hash);
 };
 
 const toolbarMutationObserver = new MutationObserver(async () => {
