@@ -161,19 +161,21 @@ const createVerifyBadgeElement = () => {
   return badge;
 }
 
-async function verifyAndBadge(emailFrom, message, signature, pubKey, hash) {
+async function verifyAndBadge(emailFrom, message, signature, pubKey) {
+  const badge = createVerifyBadgeElement();
+  if (!badge) {
+    return false;
+  }
+
   const emailView = document.querySelector('.a3s');
   if (!emailView) {
+    badge.innerHTML = createErrorBadge("Email view not found.");
     return false;
   }
 
   const emailBody = document.querySelector("div[role='listitem'], div[aria-label='Message Body']");
   if (!emailBody) {
-    return false;
-  }
-
-  const badge = createVerifyBadgeElement();
-  if (!badge) {
+    badge.innerHTML = createErrorBadge("Email body not found.");
     return false;
   }
 
@@ -182,7 +184,7 @@ async function verifyAndBadge(emailFrom, message, signature, pubKey, hash) {
     // const verification = await verifyNonceByPublicKey(pubKey, nonce);
 
     if (userData && userData?.email !== emailFrom) {
-      badge.innerHTML = createErrorBadge("Email from signature does not match hovered email.");
+      badge.innerHTML = createErrorBadge("Email from signature does not match user data.");
       return false;
     }
 
@@ -191,8 +193,6 @@ async function verifyAndBadge(emailFrom, message, signature, pubKey, hash) {
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const bodyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-    console.log(bodyHash)
 
     const msgBytes = new TextEncoder().encode(
       `ProofMail-${userData?.email || emailFrom}-${bodyHash}`
@@ -279,26 +279,19 @@ window.verifyEmailSignature = async function () {
 
   const emailView = document.querySelector('.a3s');
   if (!emailView) {
-    badge.innerHTML = createErrorBadge("Email view not found.");
+    // badge.innerHTML = createErrorBadge("Email view not found.");
     return false;
   }
 
   const emailText = emailView.innerText;
   if (!emailText || emailText.trim() === "") {
-    badge.innerHTML = createErrorBadge("Email text is empty.");
+    // badge.innerHTML = createErrorBadge("Email text is empty.");
     return false;
   }
 
-  // <span translate="no" class="yP" email="zentay36@gmail.com" name="ZTzTopia" data-hovercard-id="zentay36@gmail.com">ZTzTopia</span>
-  const hoveredSpan = document.querySelector("span[email][name].gD");
-  if (!hoveredSpan) {
-    badge.innerHTML = createErrorBadge("Hovered email span not found.");
-    return false;
-  }
-
-  const email = hoveredSpan.getAttribute("email");
-  if (!email || email.trim() === "") {
-    badge.innerHTML = createErrorBadge("Email address not found.");
+  const emailTextMatch = emailText.match(/--- PROOFMAIL SIGNATURE BEGIN ---/);
+  if (!emailTextMatch) {
+    // badge.innerHTML = createErrorBadge("Email text does not contain ProofMail signature.");
     return false;
   }
 
@@ -308,15 +301,25 @@ window.verifyEmailSignature = async function () {
     return false;
   }
 
-  console.log(email)
-
-  const { emailFrom, message, signature, pubKey, hash } = deserialized;
-  if (emailFrom !== email) {
-    badge.innerHTML = createErrorBadge("Email address does not match hovered email.");
+  const emailSpan = document.querySelector("span[email][name].gD");
+  if (!emailSpan) {
+    badge.innerHTML = createErrorBadge("Hovered email span not found.");
     return false;
   }
 
-  return verifyAndBadge(emailFrom, message, signature, pubKey, hash);
+  const email = emailSpan.getAttribute("email");
+  if (!email || email.trim() === "") {
+    badge.innerHTML = createErrorBadge("Email address not found.");
+    return false;
+  }
+
+  if (email !== deserialized.emailFrom) {
+    badge.innerHTML = createErrorBadge("Email address does not match signature.");
+    return false;
+  }
+
+  const { emailFrom, message, signature, pubKey } = deserialized;
+  return verifyAndBadge(emailFrom, message, signature, pubKey);
 };
 
 const toolbarMutationObserver = new MutationObserver(async () => {
@@ -460,7 +463,7 @@ window.addEventListener('message', async (event) => {
       return;
     } */
 
-    const signatureBlock = `\n\n---\nSigned by: ${pubKey}\nSignature: ${signature}\nHash: ${bodyHash}\nFrom: ${email}\n\nThis email is signed using ProofMail. If you trust this signature, you can verify it using the ProofMail extension.\n---`;
+    const signatureBlock = `\n\n--- PROOFMAIL SIGNATURE BEGIN ---\nSigned by: ${pubKey}\nSignature: ${signature}\nHash: ${bodyHash}\nFrom: ${email}\n\nThis email is signed using ProofMail. If you trust this signature, you can verify it using the ProofMail extension.\n--- PROOFMAIL SIGNATURE END ---\n`;
     emailBodyElement.innerText += signatureBlock;
 
     badge.innerHTML = createSuccessBadge('Email signed successfully. You can now send it.');
